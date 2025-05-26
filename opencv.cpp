@@ -42,7 +42,7 @@ int main() {
     cap.set(CAP_PROP_FRAME_WIDTH, 800);
     cap.set(CAP_PROP_FRAME_HEIGHT, 600);
     cap.set(CAP_PROP_FPS, 90);  // 常见摄像头通常支持30fps
-
+    shared_ptr<Tracking> tracking = make_shared<Tracking>();
     namedWindow("QR Distance Measurement", WINDOW_AUTOSIZE);
 
     while (true) {

@@ -99,169 +99,134 @@ public:
             L_counterBlock = 0; // 色块计数器清空
             R_counterBlock = 0; 
 
-            for (int col = COLSIMAGE/2; col < COLSIMAGE; col++) // 搜索出每行的所有色块
+            for (int col = COLSIMAGE/2; col < COLSIMAGE-2; col++) // 搜索出每行的所有色块
             {
                 if (imagePath.at<uchar>(row, col) > 127 &&
                     imagePath.at<uchar>(row, col + 1) < 127)//寻找到白->黑的变化色块
                 {
-                    R_startBlock[R_counterBlock] = col;//记录色块起始位置
-                }
-                else{
-                    if (imagePath.at<uchar>(row, col) < 127 &&
-                        imagePath.at<uchar>(row, col + 1) > 127)//寻找到白->黑的变化色块
-                    {
-                        R_endBlock[R_counterBlock++] = col;//记录色块结束位置
-                        if (R_counterBlock >= end(R_endBlock) - begin(R_endBlock))//判断是否超出数组
-                            break;
-                    }
+                    R_startBlock[R_counterBlock++] = col;//记录色块起始位置
                 }
 
             }
+            if (R_counterBlock==0)
+            {
+                R_startBlock[0] = COLSIMAGE-1;
+            }
+            
             for (int col = COLSIMAGE/2; col > 1; col--) // 搜索出每行的所有色块
             {
                 if (imagePath.at<uchar>(row, col) > 127 &&
                     imagePath.at<uchar>(row, col - 1) < 127)//寻找到白->黑的变化色块
                 {
-                    L_startBlock[L_counterBlock] = col;//记录色块起始位置
+                    L_startBlock[L_counterBlock++] = col;//记录色块起始位置
                 }
-                else
-                {
-                    if (imagePath.at<uchar>(row, col) <= 127 &&
-                        imagePath.at<uchar>(row, col - 1) > 127)//寻找到黑->白的变化色块
-                    {
-                        L_endBlock[L_counterBlock++] = col;//记录色块结束位置
-                        if (L_counterBlock >= end(L_endBlock) - begin(L_endBlock))//判断是否超出数组
-                            break;
-                    }
-                }
+
+            }
+            if (L_counterBlock==0)
+            {
+                L_startBlock[0] = 1;
             }
 
+            int widthBlocks = R_startBlock[0] - L_startBlock[0]; // 色块宽度临时变量
 
-            int widthBlocks = endBlock[0] - startBlock[0]; // 色块宽度临时变量
-            int indexWidestBlock = 0;                      // 最宽色块的序号
+            int counterBlock = min(R_counterBlock,L_counterBlock);//取两个色块数量
             if (flagStartBlock)                            // 起始行做特殊处理(第一行rowstart)
             {
-                if (row < ROWSIMAGE / 3)// 首行不满足宽度要求(第一行那有这么小的)
+                if (row < ROWSIMAGE / 2)// 首行不满足宽度要求(第一行那有这么小的)
                     return;
-                if (counterBlock == 0)// 无色块
-                {
-                    continue;
-                }
-                for (int i = 1; i < counterBlock; i++) // 搜索最宽色块
-                {
-                    int tmp_width = endBlock[i] - startBlock[i];
-                    if (tmp_width > widthBlocks)
-                    {
-                        widthBlocks = tmp_width;
-                        indexWidestBlock = i;
-                    }
-                }
+                int limitWidthBlock = COLSIMAGE * 0.6; // 首行色块宽度限制（不能太小）
 
-                int limitWidthBlock = COLSIMAGE * 0.3; // 首行色块宽度限制（不能太小）0.8的图像大小
-                if (row < ROWSIMAGE * 0.6)
-                {
-                    limitWidthBlock = COLSIMAGE * 0.4;
-                }
                 if (widthBlocks > limitWidthBlock) // 满足首行宽度要求
                 {
                     flagStartBlock = false;//第一行处理完成
-                    POINT pointTmp(row, startBlock[indexWidestBlock]);//记录最大的色块起始点x,y
+                    POINT pointTmp(row, L_startBlock[0]);//记录最大的色块起始点x,y
                     pointsLeft.push_back(pointTmp);//记录至左点集
-                    pointTmp.y = endBlock[indexWidestBlock];//记录最大的色块结束点x,y
+                    pointTmp.y = R_startBlock[0];//记录最大的色块结束点x,y
                     pointsRight.push_back(pointTmp);//记录至右点集
-                    widthBlock.emplace_back(row, endBlock[indexWidestBlock] - startBlock[indexWidestBlock]);//记录色块宽度row, width
+                    widthBlock.emplace_back(row, R_startBlock[0] -L_startBlock[0]);//记录色块宽度row, width
                     counterSearchRows++;
                 }
 
             }
             else // 其它行色块坐标处理
             {
-                if (counterBlock == 0)
-                {
-                    break;
-                }
+                vector<int> L_indexBlocks;               // 色块序号（行）
+                vector<int> R_indexBlocks;               
 
-                vector<int> indexBlocks;               // 色块序号（行）
-                for (int i = 0; i < counterBlock; i++) // 上下行色块的连通性判断
+                for (int i = 0; i < L_counterBlock; i++) // 上下行色块的连通性判断
                 {
-                    //判断是否连通
-                    int g_cover = min(endBlock[i], pointsRight[pointsRight.size() - 1].y) -
-                                  max(startBlock[i], pointsLeft[pointsLeft.size() - 1].y);
-                    if (g_cover >= 0)
+                    if (L_startBlock[i]>pointsLeft[pointsLeft.size() - 1].y&&
+                    L_startBlock[i]<pointsRight[pointsRight.size() - 1].y)
                     {
-                        indexBlocks.push_back(i);
+                        L_indexBlocks.push_back(i);
+                    }
+                }
+                for (size_t i = 0; i < R_counterBlock; i++)
+                {
+
+                    if (R_startBlock[i]<pointsRight[pointsRight.size() - 1].y&&
+                    R_startBlock[i]>pointsLeft[pointsLeft.size() - 1].y)
+                    {
+                        R_indexBlocks.push_back(i);
                     }
                 }
 
-                if (indexBlocks.size() == 0) // 如果没有发现联通色块，则图像搜索完成，结束任务
+                int indexBlocks = min(L_indexBlocks.size(), R_indexBlocks.size());
+                if (indexBlocks == 0) // 如果没有发现联通色块，则当前行不处理
                 {
                     break;
                 }
-                else if (indexBlocks.size() == 1) // 只存在单个色块，正常情况，提取边缘信息
+                indexBlocks = L_indexBlocks.size()+R_indexBlocks.size();
+                if (indexBlocks == 2) // 只存在单个色块，正常情况，提取边缘信息
                 {
-                    if (endBlock[indexBlocks[0]] - startBlock[indexBlocks[0]] < COLSIMAGE / 10)//色块宽度过小
+                    if (R_startBlock[0] - L_startBlock[0] < COLSIMAGE / 10)//色块宽度过小丢弃这一行 
                     {
                         continue;
                     }
-                    pointsLeft.emplace_back(row, startBlock[indexBlocks[0]]);
-                    pointsRight.emplace_back(row, endBlock[indexBlocks[0]]);
+                    pointsLeft.emplace_back(row, L_startBlock[L_indexBlocks[0]]);
+                    pointsRight.emplace_back(row, R_startBlock[R_indexBlocks[0]]);
                     slopeCal(pointsLeft, pointsLeft.size() - 1); // 边缘斜率计算
                     slopeCal(pointsRight, pointsRight.size() - 1);
-                    widthBlock.emplace_back(row, endBlock[indexBlocks[0]] - startBlock[indexBlocks[0]]);
+                    widthBlock.emplace_back(row, R_startBlock[R_indexBlocks[0]] - L_startBlock[L_indexBlocks[0]]);
                 }
-                else if (indexBlocks.size() > 1) // 存在多个色块，则需要择优处理：选取与上一行最近的色块
+                
+                else if (indexBlocks > 2) // 存在多个色块，则需要择优处理：选取与上一行最近的色块
                 {
                     int centerLast = COLSIMAGE / 2;
                     if (pointsRight.size() > 0 && pointsLeft.size() > 0)
                         centerLast = (pointsRight[pointsRight.size() - 1].y + pointsLeft[pointsLeft.size() - 1].y) / 2; // 上一行色块的中心点横坐标
-                    int centerThis = (startBlock[indexBlocks[0]] + endBlock[indexBlocks[0]]) / 2;                                       // 当前行色块的中心点横坐标
-                    int differBlocks = abs(centerThis - centerLast);                                                                    // 上下行色块的中心距离
-                    int indexGoalBlock = 0;                                                                                             // 目标色块的编号
-                    int startBlockNear = startBlock[indexBlocks[0]];                                                                    // 搜索与上一行最近的色块起点
-                    int endBlockNear = endBlock[indexBlocks[0]];                                                                        // 搜索与上一行最近的色块终点
+                    vector<int> centerThis_set;          
+                    vector<int> differBlocks;
 
-                    for (uint16_t i = 1; i < indexBlocks.size(); i++) // 搜索与上一行最近的色块编号
+                    for (size_t i = 0; i < L_indexBlocks.size(); i++)
                     {
-                        centerThis = (startBlock[indexBlocks[i]] + endBlock[indexBlocks[i]]) / 2;
-                        if (abs(centerThis - centerLast) < differBlocks)
+                        for (size_t j = 0; j < R_indexBlocks.size(); j++)
                         {
-                            differBlocks = abs(centerThis - centerLast);
-                            indexGoalBlock = i;
-                        }
-                        // 搜索与上一行最近的边缘起点和终点
-                        if (abs(pointsLeft[pointsLeft.size() - 1].y - startBlock[indexBlocks[i]]) <
-                            abs(pointsLeft[pointsLeft.size() - 1].y - startBlockNear))
-                        {
-                            startBlockNear = startBlock[indexBlocks[i]];
-                        }
-                        if (abs(pointsRight[pointsRight.size() - 1].y - endBlock[indexBlocks[i]]) <
-                            abs(pointsRight[pointsRight.size() - 1].y - endBlockNear))
-                        {
-                            endBlockNear = endBlock[indexBlocks[i]];
+                            int centerThis = (R_startBlock[R_indexBlocks[j]] + L_startBlock[L_indexBlocks[i]]) / 2;   
+                            centerThis_set.push_back(centerThis);
+                            differBlocks.push_back(abs(centerThis - centerLast)); 
                         }
                     }
+                    
+                    int min_value = 0;
+                    int min_index = 0;// 目标色块的编号
+                    for(size_t i = 0;i<differBlocks.size();i++)
+                    {
+                        if (differBlocks[i] < min_value) {
+                            min_value = differBlocks[i];
+                            min_index = i;
+                        }
+                    }
+                    int L_block_id=min_index/R_indexBlocks.size();
+                    int R_block_id=min_index%L_indexBlocks.size();
+                    
 
-                    // 检索最佳的起点与终点
-                    if (abs(pointsLeft[pointsLeft.size() - 1].y - startBlock[indexBlocks[indexGoalBlock]]) <
-                        abs(pointsLeft[pointsLeft.size() - 1].y - startBlockNear))
-                    {
-                        startBlockNear = startBlock[indexBlocks[indexGoalBlock]];
-                    }
-                    if (abs(pointsRight[pointsRight.size() - 1].y - endBlock[indexBlocks[indexGoalBlock]]) <
-                        abs(pointsRight[pointsRight.size() - 1].y - endBlockNear))
-                    {
-                        endBlockNear = endBlock[indexBlocks[indexGoalBlock]];
-                    }
 
-                    if (endBlockNear - startBlockNear < COLSIMAGE / 10)
-                    {
-                        continue;
-                    }
-                    POINT tmp_point(row, startBlockNear);
+                    POINT tmp_point(row, L_startBlock[L_indexBlocks[L_block_id-1]]);
                     pointsLeft.push_back(tmp_point);
-                    tmp_point.y = endBlockNear;
+                    tmp_point.y = R_startBlock[R_indexBlocks[R_block_id-1]];
                     pointsRight.push_back(tmp_point);
-                    widthBlock.emplace_back(row, endBlockNear - startBlockNear);
+                    widthBlock.emplace_back(row, R_startBlock[R_indexBlocks[R_block_id-1]] - L_startBlock[L_indexBlocks[L_block_id-1]]);
                     slopeCal(pointsLeft, pointsLeft.size() - 1);
                     slopeCal(pointsRight, pointsRight.size() - 1);
                     counterSearchRows++;
