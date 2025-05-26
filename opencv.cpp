@@ -26,7 +26,7 @@ int main() {
     VideoCapture cap;
     
     // 打开默认摄像头（通常为0）
-    cap.open(0, CAP_V4L2);  // 在Linux下明确使用V4L2后端
+    cap.open(2, CAP_V4L2);  // 在Linux下明确使用V4L2后端
     
     // 检查摄像头是否成功打开
     if (!cap.isOpened()) {
@@ -75,8 +75,12 @@ int main() {
         }
 
         imshow("QR Distance Measurement", frame);
+        // if (waitKey(10) == 13){
+        //     tracking->savePicture(frame);
+        // }
+        if (waitKey(10) == 27) break;
 
-        if (waitKey(30) == 27) break;
+
     }
 
     cap.release();

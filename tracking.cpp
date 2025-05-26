@@ -312,7 +312,7 @@ public:
             return 0;
     }
 
-private:
+public:
     Mat imagePath; // 赛道搜索图像
     /**
      * @brief 赛道识别输入图像类型
