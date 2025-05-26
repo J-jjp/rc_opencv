@@ -53,10 +53,10 @@ public:
     {
         bool flagStartBlock = true;                    // 搜索到色块起始行的标志（行）
         int counterSearchRows = pointsLeft.size(); // 搜索行计数
-        int L_startBlock[30];                            // 色块起点（行）
-        int L_endBlock[30];                              // 色块终点（行）左
-        int R_startBlock[30];                            // 色块起点（行）
-        int R_endBlock[30];                              // 色块终点（行）右
+        int L_startBlock[30]={};                            // 色块起点（行）
+
+        int R_startBlock[30]={};                            // 色块起点（行）
+
         int L_counterBlock = 0;                          // 色块计数器（行）
         int R_counterBlock = 0;                          // 色块计数器（行）
 
@@ -95,33 +95,39 @@ public:
         //  开始识别赛道左右边缘
         for (int row = rowStart; row > rowCutUp; row--) // 有效行：10~220
         {
-
+            cout<<"row:"<<row<<endl;
             L_counterBlock = 0; // 色块计数器清空
             R_counterBlock = 0; 
-
+            cout<<"R";
             for (int col = COLSIMAGE/2; col < COLSIMAGE-2; col++) // 搜索出每行的所有色块
             {
                 if (imagePath.at<uchar>(row, col) > 127 &&
                     imagePath.at<uchar>(row, col + 1) < 127)//寻找到白->黑的变化色块
                 {
                     R_startBlock[R_counterBlock++] = col;//记录色块起始位置
+                    cout<<"\t"<<col;
+
                 }
 
             }
+            cout<<endl;
             if (R_counterBlock==0)
             {
                 R_startBlock[0] = COLSIMAGE-1;
             }
-            
+            cout<<"L";
             for (int col = COLSIMAGE/2; col > 1; col--) // 搜索出每行的所有色块
             {
                 if (imagePath.at<uchar>(row, col) > 127 &&
                     imagePath.at<uchar>(row, col - 1) < 127)//寻找到白->黑的变化色块
                 {
                     L_startBlock[L_counterBlock++] = col;//记录色块起始位置
-                }
+                    cout<<"\t"<<col;
 
+                }
             }
+            cout<<endl;
+
             if (L_counterBlock==0)
             {
                 L_startBlock[0] = 1;
@@ -138,6 +144,7 @@ public:
 
                 if (widthBlocks > limitWidthBlock) // 满足首行宽度要求
                 {
+                    // std::cout<<"首行满足宽度要求"<<widthBlocks<<std::endl;
                     flagStartBlock = false;//第一行处理完成
                     POINT pointTmp(row, L_startBlock[0]);//记录最大的色块起始点x,y
                     pointsLeft.push_back(pointTmp);//记录至左点集
@@ -152,93 +159,198 @@ public:
             {
                 vector<int> L_indexBlocks;               // 色块序号（行）
                 vector<int> R_indexBlocks;               
-
+                cout<<"L:"<<L_startBlock[0]<<"\tR"<<R_startBlock[0]<<"\tpoint"<<counterSearchRows
+                <<endl;
                 for (int i = 0; i < L_counterBlock; i++) // 上下行色块的连通性判断
                 {
-                    if (L_startBlock[i]>pointsLeft[pointsLeft.size() - 1].y&&
+                    if (L_startBlock[i]>=pointsLeft[pointsLeft.size() - 1].y&&
                     L_startBlock[i]<pointsRight[pointsRight.size() - 1].y)
                     {
                         L_indexBlocks.push_back(i);
+                        // cout<<"出现了"<<i<<endl;
                     }
                 }
                 for (size_t i = 0; i < R_counterBlock; i++)
                 {
-
-                    if (R_startBlock[i]<pointsRight[pointsRight.size() - 1].y&&
+                    //413 339
+                    if (R_startBlock[i]<=pointsRight[pointsRight.size() - 1].y&&
                     R_startBlock[i]>pointsLeft[pointsLeft.size() - 1].y)
                     {
                         R_indexBlocks.push_back(i);
                     }
                 }
 
-                int indexBlocks = min(L_indexBlocks.size(), R_indexBlocks.size());
+                int indexBlocks =  L_indexBlocks.size()+R_indexBlocks.size();
+                cout<<"indexBlocks:"<<indexBlocks<<endl;
                 if (indexBlocks == 0) // 如果没有发现联通色块，则当前行不处理
                 {
-                    break;
+
+                    // pointsLeft.emplace_back(row, pointsLeft[pointsLeft.size() - 1].y);
+                    // pointsRight.emplace_back(row, pointsRight[pointsRight.size() - 1].y);
+                    continue;
                 }
-                indexBlocks = L_indexBlocks.size()+R_indexBlocks.size();
-                if (indexBlocks == 2) // 只存在单个色块，正常情况，提取边缘信息
+                else if (indexBlocks == 1)
                 {
-                    if (R_startBlock[0] - L_startBlock[0] < COLSIMAGE / 10)//色块宽度过小丢弃这一行 
+                    if (L_indexBlocks.size()>0)
                     {
-                        continue;
+                        pointsLeft.emplace_back(row, L_startBlock[L_indexBlocks[0]]);
+                        pointsRight.emplace_back(row, pointsRight[pointsRight.size() - 1].y);
+                        widthBlock.emplace_back(row, pointsRight[pointsRight.size() - 1].y - L_startBlock[L_indexBlocks[0]]);
                     }
-                    pointsLeft.emplace_back(row, L_startBlock[L_indexBlocks[0]]);
-                    pointsRight.emplace_back(row, R_startBlock[R_indexBlocks[0]]);
-                    slopeCal(pointsLeft, pointsLeft.size() - 1); // 边缘斜率计算
-                    slopeCal(pointsRight, pointsRight.size() - 1);
-                    widthBlock.emplace_back(row, R_startBlock[R_indexBlocks[0]] - L_startBlock[L_indexBlocks[0]]);
+                    else{
+                        pointsLeft.emplace_back(row, pointsLeft[pointsLeft.size() - 1].y);
+                        pointsRight.emplace_back(row, R_startBlock[R_indexBlocks[0]]);
+                        widthBlock.emplace_back(row, R_startBlock[R_indexBlocks[0]] - pointsLeft[pointsLeft.size() - 1].y);
+                    }
+                    if (widthBlock[widthBlock.size()-1].y<COLSIMAGE/8)
+                    {
+                        widthBlock.pop_back();
+                        pointsLeft.pop_back();
+                        pointsRight.pop_back();
+                    }
+                    continue;
                 }
                 
-                else if (indexBlocks > 2) // 存在多个色块，则需要择优处理：选取与上一行最近的色块
+                // else if (indexBlocks == 2) // 只存在单个色块，正常情况，提取边缘信息
+                // {        
+                //     if (R_startBlock[0] - L_startBlock[0] < COLSIMAGE / 10)//色块宽度过小丢弃这一行 
+                //     {
+                //         continue;
+                //     }
+                //     if (L_indexBlocks.size()>0)
+                //     {
+                //         int min_value = 0;
+                //         int min_index = 0;// 目标色块的编号
+                //         for(size_t i = 0;i<differBlocks.size();i++)
+                //         {
+                //             if (differBlocks[i] < min_value) {
+                //                 min_value = differBlocks[i];
+                //                 min_index = i;
+                //             }
+                //         }
+                //         L_startBlock[L_indexBlocks[i]]
+                //         pointsLeft.emplace_back(row, L_startBlock[L_indexBlocks[0]]);
+                //         pointsRight.emplace_back(row, pointsRight[pointsRight.size() - 1].y);
+                //         widthBlock.emplace_back(row, pointsRight[pointsRight.size() - 1].y - L_startBlock[L_indexBlocks[0]]);
+                //     }
+                //     else{
+                //         pointsLeft.emplace_back(row, pointsLeft[pointsLeft.size() - 1].y);
+                //         pointsRight.emplace_back(row, R_startBlock[R_indexBlocks[0]]);
+                //         widthBlock.emplace_back(row, R_startBlock[R_indexBlocks[0]] - pointsLeft[pointsLeft.size() - 1].y);
+                //     }
+                //     slopeCal(pointsLeft, pointsLeft.size() - 1); // 边缘斜率计算
+                //     slopeCal(pointsRight, pointsRight.size() - 1);
+                    
+                // }
+                
+                else if (indexBlocks > 1) // 存在多个色块，则需要择优处理：选取与上一行最近的色块
                 {
-                    int centerLast = COLSIMAGE / 2;
-                    if (pointsRight.size() > 0 && pointsLeft.size() > 0)
-                        centerLast = (pointsRight[pointsRight.size() - 1].y + pointsLeft[pointsLeft.size() - 1].y) / 2; // 上一行色块的中心点横坐标
-                    vector<int> centerThis_set;          
-                    vector<int> differBlocks;
-
-                    for (size_t i = 0; i < L_indexBlocks.size(); i++)
+                    // int centerLast = COLSIMAGE / 2;
+                    // if (pointsRight.size() > 0 && pointsLeft.size() > 0)
+                    //     centerLast = (pointsRight[pointsRight.size() - 1].y + pointsLeft[pointsLeft.size() - 1].y) / 2; // 上一行色块的中心点横坐标
+                    if (L_indexBlocks.size()==0)
                     {
-                        for (size_t j = 0; j < R_indexBlocks.size(); j++)
+                        L_startBlock[0]=pointsLeft[pointsLeft.size() - 1].y;
+                        L_indexBlocks.emplace_back(0);
+                    }
+                    if (R_indexBlocks.size()==0)
+                    {
+                        R_startBlock[0]=pointsRight[pointsRight.size() - 1].y;
+                        R_indexBlocks.emplace_back(0);
+                    }
+                    // vector<int> centerThis_set;          
+                    // vector<int> differBlocks;
+                    // int 
+                    // for (size_t i = 0; i < L_indexBlocks.size(); i++)
+                    // {
+                    //     for (size_t j = 0; j < R_indexBlocks.size(); j++)
+                    //     {
+                    //         int centerThis = (R_startBlock[R_indexBlocks[j]] + L_startBlock[L_indexBlocks[i]]) / 2;   
+                    //         centerThis_set.push_back(centerThis);
+                    //         differBlocks.push_back(abs(centerThis - centerLast)); 
+                    //     }
+                    // }
+                    
+                    // int min_value = 0;
+                    // int min_index = 0;// 目标色块的编号
+                    // for(size_t i = 0;i<differBlocks.size();i++)
+                    // {
+                    //     if (differBlocks[i] < min_value) {
+                    //         min_value = differBlocks[i];
+                    //         min_index = i;
+                    //     }
+                    // }
+                    // int L_block_id=min_index/R_indexBlocks.size();
+                    // int R_block_id=min_index%L_indexBlocks.size();
+                    
+                    int differBlock=L_startBlock[L_indexBlocks[0]]-pointsLeft[pointsLeft.size()-1].y;
+                    int L_i=0;
+                    int R_i=0;
+                    for (size_t i = 1; i < L_indexBlocks.size(); i++)
+                    {
+                        
+                        int differBlocks=L_startBlock[L_indexBlocks[i]]-pointsLeft[pointsLeft.size()-1].y;
+                        if(differBlocks<differBlock)
                         {
-                            int centerThis = (R_startBlock[R_indexBlocks[j]] + L_startBlock[L_indexBlocks[i]]) / 2;   
-                            centerThis_set.push_back(centerThis);
-                            differBlocks.push_back(abs(centerThis - centerLast)); 
+                            differBlock=differBlocks;
+                            L_i=L_indexBlocks[i];
                         }
-                    }
-                    
-                    int min_value = 0;
-                    int min_index = 0;// 目标色块的编号
-                    for(size_t i = 0;i<differBlocks.size();i++)
-                    {
-                        if (differBlocks[i] < min_value) {
-                            min_value = differBlocks[i];
-                            min_index = i;
-                        }
-                    }
-                    int L_block_id=min_index/R_indexBlocks.size();
-                    int R_block_id=min_index%L_indexBlocks.size();
-                    
 
-
-                    POINT tmp_point(row, L_startBlock[L_indexBlocks[L_block_id-1]]);
+                    }
+                    POINT tmp_point(row, L_startBlock[L_i]);
                     pointsLeft.push_back(tmp_point);
-                    tmp_point.y = R_startBlock[R_indexBlocks[R_block_id-1]];
+                    differBlock=pointsRight[pointsRight.size()-1].y-R_startBlock[R_indexBlocks[0]];
+
+                    for (size_t i = 1; i < R_indexBlocks.size(); i++)
+                    {
+                        int differBlocks=pointsRight[pointsRight.size()-1].y-R_startBlock[R_indexBlocks[i]];
+                        if(differBlocks<differBlock)
+                        {
+                            differBlock=differBlocks;
+                            R_i=R_indexBlocks[i];
+                        }
+                    }
+                    if (pointsRight[pointsRight.size()-1].y-R_startBlock[R_i]>5)
+                    {
+                        tmp_point.y = pointsRight[pointsRight.size()-1].y-3;
+                    }
+                    else{
+                        tmp_point.y = R_startBlock[R_i];
+                    }
+
+
                     pointsRight.push_back(tmp_point);
-                    widthBlock.emplace_back(row, R_startBlock[R_indexBlocks[R_block_id-1]] - L_startBlock[L_indexBlocks[L_block_id-1]]);
+                    widthBlock.emplace_back(row, tmp_point.y - L_startBlock[L_i]);
+
                     slopeCal(pointsLeft, pointsLeft.size() - 1);
                     slopeCal(pointsRight, pointsRight.size() - 1);
                     counterSearchRows++;
 
                 }
-
+                if (widthBlock[widthBlock.size()-1].y<COLSIMAGE/8)
+                {
+                    widthBlock.pop_back();
+                    pointsLeft.pop_back();
+                    pointsRight.pop_back();
+                }
                 stdevLeft = stdevEdgeCal(pointsLeft, ROWSIMAGE); // 计算边缘方差
                 stdevRight = stdevEdgeCal(pointsRight, ROWSIMAGE);
 
                 validRowsCal(); // 有效行计算
             }
         }
+        cout<<"size:"<<pointsLeft.size()<<endl;
+        // for (size_t i = 0; i < widthBlock.size(); i++)
+        // {
+        //     if (widthBlock[i].y<COLSIMAGE/8)
+        //     {
+        //         widthBlock.erase(widthBlock.begin() + i);
+        //         pointsLeft.erase(pointsLeft.begin() + i);
+        //         pointsRight.erase(pointsRight.begin() + i);
+        //     }
+        // }
+        
+
     }
 
     /**
@@ -269,8 +381,21 @@ public:
             circle(trackImage, Point(pointsRight[i].y, pointsRight[i].x), 1,
                    Scalar(0, 255, 255), -1); // 黄色点
         }
-
-
+        for (size_t i = 1; i < pointsRight.size(); i++)
+        {
+            if (pointsRight[i].y-pointsRight[i-1].y<-10)
+            {
+                
+                for (uint16_t j = i; j < pointsRight.size(); j++)
+                {
+                    circle(trackImage, Point(pointsRight[j].y, pointsRight[j].x), 1,
+                        Scalar(0, 0, 255), -1); // 黄色点
+                }
+                break;
+            }
+        }
+        
+        std::cout<<"拐点"<<widthBlock[widthBlock.size()-1].y<<endl;
 
         putText(trackImage, to_string(validRowsRight) + " " + to_string(stdevRight), Point(COLSIMAGE - 100, ROWSIMAGE - 50),
                 FONT_HERSHEY_TRIPLEX, 0.3, Scalar(0, 0, 255), 1, CV_8U);

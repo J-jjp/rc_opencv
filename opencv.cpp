@@ -26,7 +26,7 @@ int main() {
     VideoCapture cap;
     
     // 打开默认摄像头（通常为0）
-    cap.open(2, CAP_V4L2);  // 在Linux下明确使用V4L2后端
+    cap.open(0, CAP_V4L2);  // 在Linux下明确使用V4L2后端
     
     // 检查摄像头是否成功打开
     if (!cap.isOpened()) {
@@ -44,42 +44,63 @@ int main() {
     cap.set(CAP_PROP_FPS, 90);  // 常见摄像头通常支持30fps
     shared_ptr<Tracking> tracking = make_shared<Tracking>();
     namedWindow("QR Distance Measurement", WINDOW_AUTOSIZE);
-
+    namedWindow("to_string", WINDOW_AUTOSIZE);
+ 
     while (true) {
         cap >> frame;
         if (frame.empty()) break;
-
-        vector<Point2f> points;
-        String data = qrDecoder.detectAndDecode(frame, points);
+        string name = ".jpg";
+        static int counter = 1;
         
-        if (!points.empty()) {
-            // 绘制二维码边框
-            for (int i = 0; i < 4; ++i) {
-                line(frame, points[i], points[(i + 1) % 4], 
-                     Scalar(0, 255, 0), 2);
-            }
+        string img_path = "/home/ubuntu/smart-car/opencv/res/train/";
+        name = img_path + to_string(counter) + ".jpg";
 
-            // 计算并显示距离
-            double distance = calculateDistance(points);
-            string distanceText = format("Distance: %.2f cm", distance);
-            
-            putText(frame, distanceText, Point(20, 40), 
-                    FONT_HERSHEY_SIMPLEX, 0.8, Scalar(0, 0, 255), 2);
-            
-            // 在二维码中心绘制十字标记
-            Point center = (points[0] + points[2]) / 2;
-            line(frame, Point(center.x-10, center.y), 
-                         Point(center.x+10, center.y), Scalar(255, 0, 0), 2);
-            line(frame, Point(center.x, center.y-10), 
-                         Point(center.x, center.y+10), Scalar(255, 0, 0), 2);
-        }
+        Mat a =imread(name);
+        vector<Point2f> points;
+        // String data = qrDecoder.detectAndDecode(frame, points);
+        Mat imageGray, imageBinary;
+        cvtColor(a, imageGray, COLOR_BGR2GRAY); // RGB转灰度图
+        threshold(imageGray, imageBinary, 0, 255, THRESH_OTSU); // OTSU二值化方法
 
-        imshow("QR Distance Measurement", frame);
-        // if (waitKey(10) == 13){
-        //     tracking->savePicture(frame);
+        // if (!points.empty()) {
+        //     // 绘制二维码边框
+        //     for (int i = 0; i < 4; ++i) {
+        //         line(frame, points[i], points[(i + 1) % 4], 
+        //              Scalar(0, 255, 0), 2);
+        //     }
+
+        //     // 计算并显示距离
+        //     double distance = calculateDistance(points);
+        //     string distanceText = format("Distance: %.2f cm", distance);
+            
+        //     putText(frame, distanceText, Point(20, 40), 
+        //             FONT_HERSHEY_SIMPLEX, 0.8, Scalar(0, 0, 255), 2);
+            
+        //     // 在二维码中心绘制十字标记
+        //     Point center = (points[0] + points[2]) / 2;
+        //     line(frame, Point(center.x-10, center.y), 
+        //                  Point(center.x+10, center.y), Scalar(255, 0, 0), 2);
+        //     line(frame, Point(center.x, center.y-10), 
+        //                  Point(center.x, center.y+10), Scalar(255, 0, 0), 2);
         // }
-        if (waitKey(10) == 27) break;
 
+        imshow("QR Distance Measurement", a);
+        imshow("to_string", imageBinary);
+        tracking->trackRecognition(imageBinary);
+        tracking->drawImage(a);
+        imshow("to", a);
+        
+        int key = waitKey(10);
+        if (key == 13){
+        //     tracking->savePicture(frame);
+                counter++;
+        }
+        else if(key == 'a'){
+            counter--;
+
+        }
+        else if (key == 27) break;
+        std::cout<<"第"<<counter<<std::endl;
 
     }
 
