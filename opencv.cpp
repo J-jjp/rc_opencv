@@ -1,28 +1,25 @@
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <cmath>
+#include <opencv2/apriltag.hpp>
 #include "tracking.cpp"
 using namespace cv;
 using namespace std;
 
-// 相机参数（需要根据实际相机标定结果填写）
-const double FOCAL_LENGTH = 700; // 焦距（像素单位）
-const double QRCODE_REAL_SIZE = 12.0; // 二维码实际边长（厘米）
 
-double calculateDistance(const vector<Point2f>& points) {
-    // 计算二维码在图像中的像素边长
-    double pixelLength = norm(points[1] - points[0]);
-    
-    // 使用相似三角形原理计算距离
-    // 距离 = (实际尺寸 × 焦距) / 像素尺寸
-    return (QRCODE_REAL_SIZE * FOCAL_LENGTH) / pixelLength;
-}
 
 int main() {
 
-    QRCodeDetector qrDecoder;
+    Ptr<apriltag::AprilTagDetector> detector = apriltag::AprilTagDetector::create(
+    apriltag::AprilTagDetector::TagFamily::TAG_36h11);
     Mat frame;
-
+    double tag_size = 0.1; // AprilTag实际边长（单位：米）
+    double fx = 800;      // 相机焦距（像素）
+    double fy = 800;
+    double cx = 320;      // 光心坐标
+    double cy = 240;
+    Mat cameraMatrix = Mat_<double>(3,3) << fx, 0, cx, 0, fy, cy, 0, 0, 1;
+    Mat distCoeffs = Mat::zeros(5, 1, CV_64F); // 假设无畸变
     VideoCapture cap;
     
     // 打开默认摄像头（通常为0）
@@ -60,6 +57,37 @@ int main() {
         // String data = qrDecoder.detectAndDecode(frame, points);
         Mat imageGray, imageBinary;
         cvtColor(a, imageGray, COLOR_BGR2GRAY); // RGB转灰度图
+        vector<apriltag::AprilTagDetection> detections = detector->detect(gray);
+        // 6. 处理检测结果
+        for (const auto& detection : detections) {
+            // 绘制边界框
+            for (int i = 0; i < 4; ++i) {
+                line(frame, 
+                    Point(detection.corners[i].x, detection.corners[i].y),
+                    Point(detection.corners[(i+1)%4].x, detection.corners[(i+1)%4].y),
+                    Scalar(0, 255, 0), 2);
+            }
+
+            // 7. 计算距离（方法1：相似三角形法）
+            double pixel_size = norm(detection.corners[0] - detection.corners[1]);
+            double distance = (tag_size * fx) / pixel_size;
+
+            // 方法2：PnP位姿估计（更精确）
+            vector<Point3f> objectPoints = {
+                {-tag_size/2, -tag_size/2, 0},
+                { tag_size/2, -tag_size/2, 0},
+                { tag_size/2,  tag_size/2, 0},
+                {-tag_size/2,  tag_size/2, 0}
+            };
+            Mat rvec, tvec;
+            solvePnP(objectPoints, detection.corners, cameraMatrix, distCoeffs, rvec, tvec);
+            double precise_dist = norm(tvec); // 精确距离
+
+            // 显示结果
+            putText(frame, format("Dist: %.2fm", precise_dist),
+                Point(detection.corners[0].x, detection.corners[0].y - 10),
+                FONT_HERSHEY_SIMPLEX, 0.6, Scalar(0, 0, 255), 2);
+        }
         threshold(imageGray, imageBinary, 0, 255, THRESH_OTSU); // OTSU二值化方法
 
         // if (!points.empty()) {
