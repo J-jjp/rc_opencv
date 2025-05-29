@@ -57,37 +57,6 @@ int main() {
         // String data = qrDecoder.detectAndDecode(frame, points);
         Mat imageGray, imageBinary;
         cvtColor(a, imageGray, COLOR_BGR2GRAY); // RGB转灰度图
-        vector<apriltag::AprilTagDetection> detections = detector->detect(gray);
-        // 6. 处理检测结果
-        for (const auto& detection : detections) {
-            // 绘制边界框
-            for (int i = 0; i < 4; ++i) {
-                line(frame, 
-                    Point(detection.corners[i].x, detection.corners[i].y),
-                    Point(detection.corners[(i+1)%4].x, detection.corners[(i+1)%4].y),
-                    Scalar(0, 255, 0), 2);
-            }
-
-            // 7. 计算距离（方法1：相似三角形法）
-            double pixel_size = norm(detection.corners[0] - detection.corners[1]);
-            double distance = (tag_size * fx) / pixel_size;
-
-            // 方法2：PnP位姿估计（更精确）
-            vector<Point3f> objectPoints = {
-                {-tag_size/2, -tag_size/2, 0},
-                { tag_size/2, -tag_size/2, 0},
-                { tag_size/2,  tag_size/2, 0},
-                {-tag_size/2,  tag_size/2, 0}
-            };
-            Mat rvec, tvec;
-            solvePnP(objectPoints, detection.corners, cameraMatrix, distCoeffs, rvec, tvec);
-            double precise_dist = norm(tvec); // 精确距离
-
-            // 显示结果
-            putText(frame, format("Dist: %.2fm", precise_dist),
-                Point(detection.corners[0].x, detection.corners[0].y - 10),
-                FONT_HERSHEY_SIMPLEX, 0.6, Scalar(0, 0, 255), 2);
-        }
         threshold(imageGray, imageBinary, 0, 255, THRESH_OTSU); // OTSU二值化方法
 
         // if (!points.empty()) {
